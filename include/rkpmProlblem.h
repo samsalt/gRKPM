@@ -37,6 +37,7 @@ class grkpm
     domainBound modelBound {};
     gmbinInfo binInfo {};
     double normalWin {1.3};
+    bool shapeFlag {false};
 
     int threadsPerBlock {64};
     int blocksPerGrid {};

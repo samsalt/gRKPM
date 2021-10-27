@@ -36,7 +36,7 @@ void grkpm::neighborSearch()
     // except(err,"Fail to tansfer data to device, force");
     // for (int i =0; i<totalBinNum; i++)
     // {
-    //     EchoVar("neighborNum", hbn[i].nodeNum);
+    //     EchoVar("bin id", i);
     //     for (int j =0; j<hbn[i].nodeNum; j++) std::cout<<hbn[i].nodeId[j]<<", ";
     //     std::cout<<std::endl;
     // }
@@ -46,7 +46,7 @@ void grkpm::neighborSearch()
     // except(err,"Fail to tansfer data to device, force");    
     // for (int i =0; i<nc; i++)
     // {
-    //     EchoVar("neighborNum", hnn[i].neighborNum);
+    //     EchoVar("neighborNum", i);
     //     for (int j =0; j<hnn[i].neighborNum; j++) std::cout<<hnn[i].neighborId[j]<<", ";
     //     std::cout<<std::endl;
     // }
@@ -70,8 +70,6 @@ void grkpm::solve()
     err = cudaMalloc(&nodeNeighbor, nc * sizeof(gmNodeNeighbor));
     except(err,"Fail to allocate device memory");
 
-
-
     err = cudaMemcpy(dspDev, hostDsp, nc * sizeof(cellDsp), cudaMemcpyHostToDevice);
     except(err,"Fail to tansfer data to device, dsp");
     err = cudaMemcpy(positionDev, hostPosition, nc * sizeof(cellPosition), cudaMemcpyHostToDevice);
@@ -80,4 +78,27 @@ void grkpm::solve()
     except(err,"Fail to tansfer data to device, force");
 
     neighborSearch();
+
+    blocksPerGrid = (nc + threadsPerBlock - 1) / threadsPerBlock;
+
+    if (shapeFlag)
+    {
+        cudaFree(shape);
+        cudaFree(shapeGradient);
+    }
+    err = cudaMalloc(&shape, nc * sizeof(gmShape));
+    except(err,"Fail to allocate device memory");
+    err = cudaMalloc(&shapeGradient, nc * sizeof(gmShapeGradient));
+    except(err,"Fail to allocate device memory");
+    updateRK<<<blocksPerGrid,threadsPerBlock>>>(nc, nodeNeighbor, positionDev, shape, shapeGradient);
+
+    gmShape* hshape=(gmShape*)malloc(nc*sizeof(gmShape));
+    err = cudaMemcpy(hshape, shape,nc*sizeof(gmShape), cudaMemcpyDeviceToHost);
+    except(err,"Fail to tansfer data to device, force");
+    for (int i =0; i<nc; i++)
+    {
+        EchoVar("node id", i);
+        for (int j =0; j<14; j++) std::cout<<hshape[i].val[j]<<", ";
+        std::cout<<std::endl;
+    }
 }
