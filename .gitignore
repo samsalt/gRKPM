@@ -11,3 +11,5 @@ bin/*
 .vscode/*
 .vscode/
 /*.exo
+*.log
+*.dat
