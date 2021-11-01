@@ -201,6 +201,7 @@ __global__ void updateRK(int nc, gmNodeNeighbor *nodeNeighbor, const cellPositio
         mat4Scale(-1, &mtemp4);
         mat4Prod(&mtemp4, &invM, &invdm2);
 
+
         mat4Prod(&invM, &dm3, &mtemp4);
         mat4Scale(-1, &mtemp4);
         mat4Prod(&mtemp4, &invM, &invdm3);
@@ -235,8 +236,24 @@ __global__ void updateRK(int nc, gmNodeNeighbor *nodeNeighbor, const cellPositio
             vec4Dot(&b3,&hx,&temp3);
             shapeGradient[index].val[0][i]=phi.val[0]*temp1 + phi.val[0] * b0.val[1] + phi.val[1] * temp;
             shapeGradient[index].val[1][i]=phi.val[0]*temp2 + phi.val[0] * b0.val[2] + phi.val[2] * temp;
-            shapeGradient[index].val[2][i]=phi.val[0]*temp3 + phi.val[0] * b0.val[3] + phi.val[3] * temp;            
+            shapeGradient[index].val[2][i]=phi.val[0]*temp3 + phi.val[0] * b0.val[3] + phi.val[3] * temp;
+
+            // shape[index].val[i]=positionDev[localNeighborId].coo[0];            
+            // shape[index].val[i]=localCoo[2];           
+            // shapeGradient[index].val[0][i]=positionDev[localNeighborId].coo[2];
+            // shapeGradient[index].val[0][i]=positionDev[localNeighborId].win;
+            // shapeGradient[index].val[0][i]=localCoo[2];
+            // shape[index].val[i]=hx.val[1];
+            // shapeGradient[index].val[0][i]=hx.val[2];
+            // shapeGradient[index].val[1][i]=hx.val[3];
         }
+
+        // for (int i = 0; i < 4; i++)
+        //     for (int j = 0; j < 4; j++)
+        //     {
+        //         shape[index].val[i*4+j]=M.val[i][j];
+        //     }
+        
     }
 }
 __device__ void getPhi(vec4 *hxPtr, vec4 *phiPtr, double win)
@@ -246,7 +263,7 @@ __device__ void getPhi(vec4 *hxPtr, vec4 *phiPtr, double win)
 
     for (int i = 0; i < 3; i++)
     {
-        zl[i] = (*hxPtr).val[i + 1];
+        zl[i] = abs((*hxPtr).val[i + 1])/win;
         if (zl[i] <= 0.5)
         {
             localPhi[i] = 2.0 / 3.0 - 4 * zl[i] * zl[i] + 4 * zl[i] * zl[i] * zl[i];
@@ -337,7 +354,6 @@ __device__ void mat4Invert(mat4 *ma, mat4 *ans)
     double det;
     mat4 ta;
     det = (*ma).val[0][0] * ((*ma).val[1][1] * ((*ma).val[2][2] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][2]) + (*ma).val[1][2] * ((*ma).val[2][3] * (*ma).val[3][1] - (*ma).val[2][1] * (*ma).val[3][3]) + (*ma).val[1][3] * ((*ma).val[2][1] * (*ma).val[3][2] - (*ma).val[2][2] * (*ma).val[3][1])) - (*ma).val[0][1] * ((*ma).val[1][0] * ((*ma).val[2][2] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][2]) + (*ma).val[1][2] * ((*ma).val[2][3] * (*ma).val[3][0] - (*ma).val[2][0] * (*ma).val[3][3]) + (*ma).val[1][3] * ((*ma).val[2][0] * (*ma).val[3][2] - (*ma).val[2][2] * (*ma).val[3][0])) + (*ma).val[0][2] * ((*ma).val[1][0] * ((*ma).val[2][1] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][1]) + (*ma).val[1][1] * ((*ma).val[2][3] * (*ma).val[3][0] - (*ma).val[2][0] * (*ma).val[3][3]) + (*ma).val[1][3] * ((*ma).val[2][0] * (*ma).val[3][1] - (*ma).val[2][1] * (*ma).val[3][0])) - (*ma).val[0][3] * ((*ma).val[1][0] * ((*ma).val[2][1] * (*ma).val[3][2] - (*ma).val[2][2] * (*ma).val[3][1]) + (*ma).val[1][1] * ((*ma).val[2][2] * (*ma).val[3][0] - (*ma).val[2][0] * (*ma).val[3][2]) + (*ma).val[1][2] * ((*ma).val[2][0] * (*ma).val[3][1] - (*ma).val[2][1] * (*ma).val[3][0]));
-
     ta.val[0][0] = (*ma).val[1][1] * ((*ma).val[2][2] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][2]) + (*ma).val[1][2] * ((*ma).val[2][3] * (*ma).val[3][1] - (*ma).val[2][1] * (*ma).val[3][3]) + (*ma).val[1][3] * ((*ma).val[2][1] * (*ma).val[3][2] - (*ma).val[2][2] * (*ma).val[3][1]);
     ta.val[1][0] = (*ma).val[1][0] * ((*ma).val[2][3] * (*ma).val[3][2] - (*ma).val[2][2] * (*ma).val[3][3]) + (*ma).val[1][2] * ((*ma).val[2][0] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][0]) + (*ma).val[1][3] * ((*ma).val[2][2] * (*ma).val[3][0] - (*ma).val[2][0] * (*ma).val[3][2]);
     ta.val[2][0] = (*ma).val[1][0] * ((*ma).val[2][1] * (*ma).val[3][3] - (*ma).val[2][3] * (*ma).val[3][1]) + (*ma).val[1][1] * ((*ma).val[2][3] * (*ma).val[3][0] - (*ma).val[2][0] * (*ma).val[3][3]) + (*ma).val[1][3] * ((*ma).val[2][0] * (*ma).val[3][1] - (*ma).val[2][1] * (*ma).val[3][0]);

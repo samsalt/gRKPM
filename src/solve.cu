@@ -92,13 +92,22 @@ void grkpm::solve()
     except(err,"Fail to allocate device memory");
     updateRK<<<blocksPerGrid,threadsPerBlock>>>(nc, nodeNeighbor, positionDev, shape, shapeGradient);
 
-    gmShape* hshape=(gmShape*)malloc(nc*sizeof(gmShape));
-    err = cudaMemcpy(hshape, shape,nc*sizeof(gmShape), cudaMemcpyDeviceToHost);
-    except(err,"Fail to tansfer data to device, force");
-    for (int i =0; i<nc; i++)
-    {
-        EchoVar("node id", i);
-        for (int j =0; j<14; j++) std::cout<<hshape[i].val[j]<<", ";
-        std::cout<<std::endl;
-    }
+    // gmShape* hshape=(gmShape*)malloc(nc*sizeof(gmShape));
+    // gmShapeGradient* hgrashape=(gmShapeGradient*)malloc(nc*sizeof(gmShapeGradient));
+    // err = cudaMemcpy(hshape, shape,nc*sizeof(gmShape), cudaMemcpyDeviceToHost);
+    // err = cudaMemcpy(hgrashape, shapeGradient,nc*sizeof(gmShapeGradient), cudaMemcpyDeviceToHost);
+    // except(err,"Fail to tansfer data to device, force");
+    // for (int i =0; i<nc; i++)
+    // {
+    //     EchoVar("node id", i);
+    //     for (int j =0; j<16; j++) std::cout<<hshape[i].val[j]<<", ";
+    //     std::cout<<std::endl;
+    //     EchoVar("neighbor", i);
+    //     for (int j =0; j<14; j++) std::cout<<hgrashape[i].val[0][j]<<", ";
+    //     std::cout<<std::endl;
+    //     EchoVar("neighbor", i);
+    //     for (int j =0; j<14; j++) std::cout<<hgrashape[i].val[1][j]<<", ";
+    //     std::cout<<std::endl;
+    // }
+    
 }

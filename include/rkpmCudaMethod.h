@@ -10,6 +10,7 @@ struct cellDsp
     double vel[3] {};
     double acl[3] {};
     double dsp[3] {};
+    double mass {};
 };
 struct cellForce
 {
