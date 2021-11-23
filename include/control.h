@@ -1,3 +1,7 @@
+#pragma once
+#include "blockInfo.h"
+#include <vector>
+
 class control
 {
     public:
@@ -18,6 +22,8 @@ class control
 
     
     double winMax {};
+
+    std::vector<gBlockInfo> blockInfo;
 
     // methods
 

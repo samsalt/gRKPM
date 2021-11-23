@@ -68,23 +68,23 @@ void grkpm::preprocess()
   // read and write model information
   char title[MAX_LINE_LENGTH + 1];
   int DimensionNum;
-  error = ex_get_init(InputExoid, title, &DimensionNum, &SimulationParameter.np, &nc, &SimulationParameter.blockNum, &SimulationParameter.nodeSetNum, &SimulationParameter.sideSetNum);
-  error = ex_put_init(OutputExoid, "doublebase", 3, SimulationParameter.np, nc, SimulationParameter.blockNum, 0, 0);
+  error = ex_get_init(InputExoid, title, &DimensionNum, &simulationParameter.np, &nc, &simulationParameter.blockNum, &simulationParameter.nodeSetNum, &simulationParameter.sideSetNum);
+  error = ex_put_init(OutputExoid, "doublebase", 3, simulationParameter.np, nc, simulationParameter.blockNum, 0, 0);
 
 
   hostPosition = (cellPosition*)malloc(nc*sizeof(cellPosition));
   hostForce = (cellForce*)malloc(nc*sizeof(cellForce));
   hostDsp = (cellDsp*)malloc(nc*sizeof(cellDsp));
 
-  EchoVar("Number of Blocks", SimulationParameter.blockNum);
-  EchoVar("Number of Points", SimulationParameter.np);
+  EchoVar("Number of Blocks", simulationParameter.blockNum);
+  EchoVar("Number of Points", simulationParameter.np);
   EchoVar("Number of Cells", nc);
 
   // read and write node coordinates
   double *xcoo, *ycoo, *zcoo;
-  xcoo = (double *)calloc(SimulationParameter.np, sizeof(double));
-  ycoo = (double *)calloc(SimulationParameter.np, sizeof(double));
-  zcoo = (double *)calloc(SimulationParameter.np, sizeof(double));
+  xcoo = (double *)calloc(simulationParameter.np, sizeof(double));
+  ycoo = (double *)calloc(simulationParameter.np, sizeof(double));
+  zcoo = (double *)calloc(simulationParameter.np, sizeof(double));
   error = ex_get_coord(InputExoid, xcoo, ycoo, zcoo);
   error = ex_put_coord(OutputExoid, xcoo, ycoo, zcoo);
 
@@ -103,20 +103,21 @@ void grkpm::preprocess()
   int cellIdGlobal {};
 
   // read all element blocks information and new cells in each block
-  for (int BlockId = 0; BlockId < SimulationParameter.blockNum; BlockId++)
+  for (int blockId = 0; blockId < simulationParameter.blockNum; blockId++)
   {
+
     int localCellNum{}, vertexPerCellNum{}, AttributeNum{};
     char elem_type[MAX_STR_LENGTH + 1];
 
-    error = ex_get_elem_block(InputExoid, BlockId + 1, elem_type, &localCellNum, &vertexPerCellNum, &AttributeNum);
-    error = ex_put_elem_block(OutputExoid, BlockId + 1, elem_type, localCellNum, vertexPerCellNum, AttributeNum);
+    error = ex_get_elem_block(InputExoid, blockId + 1, elem_type, &localCellNum, &vertexPerCellNum, &AttributeNum);
+    error = ex_put_elem_block(OutputExoid, blockId + 1, elem_type, localCellNum, vertexPerCellNum, AttributeNum);
 
-    if (localCellNum>SimulationParameter.cellNumMax) SimulationParameter.cellNumMax=localCellNum;
+    if (localCellNum>simulationParameter.cellNumMax) simulationParameter.cellNumMax=localCellNum;
 
 
     int *connect;
     connect = (int *)calloc(vertexPerCellNum * localCellNum, sizeof(int));
-    error = ex_get_elem_conn(InputExoid, BlockId + 1, connect);
+    error = ex_get_elem_conn(InputExoid, blockId + 1, connect);
 
     for (int i = 0; i < localCellNum; i++)
     {
@@ -132,9 +133,19 @@ void grkpm::preprocess()
 
       hexVolumePosition(xyzel,localVolume,localPosition,localWin);
 
+
+
       hostForce[cellIdGlobal].volume = localVolume;
       hostPosition[cellIdGlobal].win=localWin;
-      if (SimulationParameter.winMax<localWin) SimulationParameter.winMax=localWin;
+      hostDsp[cellIdGlobal].mass=localVolume*simulationParameter.blockInfo[blockId].materialProperty[0];
+      for (int j = 0; j < 3; j++)
+        hostDsp[cellIdGlobal].vel[j] = simulationParameter.blockInfo[blockId].velocityInitial[j];
+
+      for (int j = 0; j < 6; j++)
+        for (int k = 0; k < 6; k++)
+          hostForce[cellIdGlobal].cmat.val[k][j]=simulationParameter.blockInfo[blockId].cmat.val[j][k];
+
+      if (simulationParameter.winMax<localWin) simulationParameter.winMax=localWin;
       for (int j = 0; j < 3; j++)
       {
         hostPosition[cellIdGlobal].coo[j] = localPosition[j];
@@ -145,11 +156,40 @@ void grkpm::preprocess()
 
       cellIdGlobal++;
     }
-    // error = ex_put_elem_conn(OutputExoid, BlockId + 1, connect); !!!!!!!!!!!!!!!!!!!!!!!! needs to be taken care
+    // error = ex_put_elem_conn(OutputExoid, blockId + 1, connect); !!!!!!!!!!!!!!!!!!!!!!!! needs to be taken care
     free(connect);
   }
 
   free(xcoo);
   free(ycoo);
   free(zcoo);
+
+
+  // read side set
+  ids = (int *)calloc(simulationParameter.sideSetNum, sizeof(int));
+  error = ex_get_side_set_ids(InputExoid, ids);
+  hostEssentialNode=(int**)calloc(simulationParameter.sideSetNum,sizeof(int*));
+  // essentialNodeDev=(int**)calloc(simulationParameter.sideSetNum,sizeof(int*));
+
+  for (int i = 0; i < simulationParameter.sideSetNum; i++)
+  {
+    int num_sides_in_set, num_df_in_set, num_elem_in_set;
+    int *elem_list, *side_list;
+    error = ex_get_side_set_param(InputExoid, ids[i], &num_sides_in_set,
+                                  &num_df_in_set);
+    /* Note: The # of elements is same as # of sides! there could be repeated elements*/
+    num_elem_in_set = num_sides_in_set;
+    // FaceTemp[i].resize(num_sides_in_set,std::vector<gxcId>(2,0));
+    // FaceTemp[i].FaceSetId=i;
+    hostEssentialNode[i] = (int *)calloc(num_elem_in_set, sizeof(int));
+    side_list = (int *)calloc(num_sides_in_set, sizeof(int));
+    error = ex_get_side_set(InputExoid, ids[i], hostEssentialNode[i], side_list);
+    nodeNumInSet.push_back(num_elem_in_set);
+
+    free(side_list);
+  }
+
+  EchoVar("Number of Sideset",simulationParameter.sideSetNum);
+
+
 };

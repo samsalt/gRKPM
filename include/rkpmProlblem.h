@@ -6,20 +6,25 @@
 #include "control.h"
 #include "gxcEcho.h"
 #include "gxcMath.h"
-#include "rkpmCudaMethod.h"
+// #include "rkpmCudaMethod.h"
+#include "gType.h"
 #include <cuda_runtime.h>
+#include "gxcNodeSet.h"
+#include <chrono>
 
 class grkpm
 {
     public:
     //method
+    void readControl();
     void preprocess();
+    void stateInitiate();
     void solve();
     void hexVolumePosition(const std::array<std::array<double, 3>, 8> &xyzel, double &volume, std::array<double, 3> &position, double &win);
 
     void neighborSearch();
     //data
-    control SimulationParameter;
+    control simulationParameter;
 
     cellDsp* hostDsp;
     cellPosition* hostPosition;
@@ -41,8 +46,14 @@ class grkpm
 
     int threadsPerBlock {64};
     int blocksPerGrid {};
-
     int nc {};
+
+    int** hostEssentialNode;
+    int** essentialNodeDev;
+    std::vector<int> nodeNumInSet;
+
+
+    std::vector<gxcEssentialNodeSet> essentialNodeSet;
 
     // destructor
     ~grkpm()
@@ -56,6 +67,11 @@ class grkpm
         err = cudaFree(nodeNeighbor);
         err = cudaFree(shape);
         err = cudaFree(shapeGradient);
+        for (int i=0; i<simulationParameter.sideSetNum;i++)
+        {
+            free(hostEssentialNode[i]);
+            cudaFree(essentialNodeDev[i]);
+        }
     }
 
 };
