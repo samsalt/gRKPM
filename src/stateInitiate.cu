@@ -19,6 +19,11 @@ void grkpm::stateInitiate()
 
     EchoVar("blocksPerGrid",blocksPerGrid);
 
+    for (int i =0; i< simulationParameter.blockNum; i++)
+    {
+           simulationParameter.blockInfo[i].formCmat();
+    }
+
     err = cudaMalloc(&dspDev, nc * sizeof(cellDsp));
     except(err,"Fail to allocate device memory, dspDev");
     err = cudaMalloc(&positionDev, nc * sizeof(cellPosition));

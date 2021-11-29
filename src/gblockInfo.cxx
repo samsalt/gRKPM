@@ -13,17 +13,29 @@ void gBlockInfo::formCmat()
     materialProperty[19]=MuM;
 
 
-    cmat.val[0][0] = LamdaPlus2Mu;
-    cmat.val[1][1] = LamdaPlus2Mu;
-    cmat.val[2][2] = LamdaPlus2Mu;
-    cmat.val[3][3] = MuM;
-    cmat.val[4][4] = MuM;
-    cmat.val[5][5] = MuM;
-    cmat.val[0][1] = LamdaM;
-    cmat.val[1][0] = LamdaM;
-    cmat.val[0][2] = LamdaM;
-    cmat.val[2][0] = LamdaM;
-    cmat.val[1][2] = LamdaM;
-    cmat.val[2][1] = LamdaM;
+    // cmat.val[0][0] = LamdaPlus2Mu;
+    // cmat.val[1][1] = LamdaPlus2Mu;
+    // cmat.val[2][2] = LamdaPlus2Mu;
+    // cmat.val[3][3] = MuM;
+    // cmat.val[4][4] = MuM;
+    // cmat.val[5][5] = MuM;
+    // cmat.val[0][1] = LamdaM;
+    // cmat.val[1][0] = LamdaM;
+    // cmat.val[0][2] = LamdaM;
+    // cmat.val[2][0] = LamdaM;
+    // cmat.val[1][2] = LamdaM;
+    // cmat.val[2][1] = LamdaM;
+    cmat[0][0] = LamdaPlus2Mu;
+    cmat[1][1] = LamdaPlus2Mu;
+    cmat[2][2] = LamdaPlus2Mu;
+    cmat[3][3] = MuM;
+    cmat[4][4] = MuM;
+    cmat[5][5] = MuM;
+    cmat[0][1] = LamdaM;
+    cmat[1][0] = LamdaM;
+    cmat[0][2] = LamdaM;
+    cmat[2][0] = LamdaM;
+    cmat[1][2] = LamdaM;
+    cmat[2][1] = LamdaM;
 
 }

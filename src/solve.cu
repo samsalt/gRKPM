@@ -33,29 +33,8 @@ void grkpm::neighborSearch()
     blocksPerGrid = (nc + threadsPerBlock - 1) / threadsPerBlock;
     countBin<<<1, 1>>>(nodeBinId, nc, binNode, binInfo);
 
-    // gmBinNode* hbn=(gmBinNode*)malloc(totalBinNum * sizeof(gmBinNode));
-    // err = cudaMemcpy(hbn, binNode,totalBinNum * sizeof(gmBinNode), cudaMemcpyDeviceToHost);
-    // except(err,"Fail to tansfer data to device, force");
-    // for (int i =0; i<totalBinNum; i++)
-    // {
-    //     EchoVar("bin id", i);
-    //     for (int j =0; j<hbn[i].nodeNum; j++) std::cout<<hbn[i].nodeId[j]<<", ";
-    //     std::cout<<std::endl;
-    // }
-    // free(hbn);
-
     nodeNeighborSearch<<<blocksPerGrid, threadsPerBlock>>>(binNode, nc, nodeNeighbor, binInfo, nodeBinId, positionDev);
 
-    // gmNodeNeighbor* hnn=(gmNodeNeighbor*)malloc(nc * sizeof(gmNodeNeighbor));
-    // err = cudaMemcpy(hnn, nodeNeighbor,nc * sizeof(gmNodeNeighbor), cudaMemcpyDeviceToHost);
-    // except(err,"Fail to tansfer data to device, force");
-    // for (int i =0; i<nc; i++)
-    // {
-    //     EchoVar("neighborNum", i);
-    //     for (int j =0; j<hnn[i].neighborNum; j++) std::cout<<hnn[i].neighborId[j]<<", ";
-    //     std::cout<<std::endl;
-    // }
-    // free(hnn)
     err = cudaFree(nodeBinId);
     except(err, "Fail to free device memory, nodeBinId");
     err = cudaFree(binNode);
@@ -84,7 +63,7 @@ void grkpm::solve()
     cudaDeviceSynchronize();
     shapeFlag = true;
 
-    EchoStr("Start time integrating");
+    EchoStr("Start time integration");
     // chrono::steady_clock sc;
     // auto start = sc.now();
 
@@ -93,27 +72,43 @@ void grkpm::solve()
         for (unsigned i = 0; i < essentialNodeSet.size(); i++)
             essentialNodeSet[i].updateCurrentBoundaryCondition(simulationParameter);
 
-        simulationParameter.timeCurrent+=simulationParameter.dlt;
+        predictor<<<blocksPerGrid, threadsPerBlock>>>(nc, simulationParameter.dlt, dspDev);
+
+        for (int i = 0; i < simulationParameter.sideSetNum; i++)
+        {
+            blocksPerGrid = (nodeNumInSet[i] + threadsPerBlock - 1) / threadsPerBlock;
+            
+            esstialBoundaryEnforce<<<blocksPerGrid, threadsPerBlock>>>(nodeNumInSet[i], essentialNodeDev[i], essentialNodeSet[i].currentEssentialBoundaryCondition, dspDev);
+
+            err = cudaMalloc(&(essentialNodeDev[i]), nodeNumInSet[i] * sizeof(int));
+            except(err, "Fail to allocate device memory, essential node set");
+            err = cudaMemcpy(essentialNodeDev[i], hostEssentialNode[i], nodeNumInSet[i] * sizeof(int), cudaMemcpyHostToDevice);
+
+        }
+        blocksPerGrid = (nc + threadsPerBlock - 1) / threadsPerBlock;
+
+        fintCal<<<blocksPerGrid, threadsPerBlock>>>(nc, dspDev, nodeNeighbor, shapeGradient, forceDev);
+
+        assemble<<<blocksPerGrid, threadsPerBlock>>>(nc, dspDev, nodeNeighbor, forceDev);
+
+        corrector<<<blocksPerGrid, threadsPerBlock>>>(nc, simulationParameter.dlt, dspDev);
+
+        if (simulationParameter.timeCurrent > simulationParameter.timetoOutput)
+        {
+            simulationParameter.timetoOutput += simulationParameter.timeOutputPeriod;
+
+            err = cudaMemcpy(hostDsp, dspDev, nc * sizeof(cellDsp), cudaMemcpyDeviceToHost);
+
+            except(err, "Fail to tansfer data to device, dsp in output");
+
+            EchoVar("dsp at the end", hostDsp[nc - 1].dsp[0]);
+        }
+
+        simulationParameter.timeCurrent += simulationParameter.dlt;
     }
+    EchoStr("The simulation is finished!");
     // auto end = sc.now();
     // auto simulationTime = static_cast<chrono::duration<double>>(end - start);
     // EchoVar("Simulation duration (sec): ", simulationTime.count());
 
-    // gmShape* hshape=(gmShape*)malloc(nc*sizeof(gmShape));
-    // gmShapeGradient* hgrashape=(gmShapeGradient*)malloc(nc*sizeof(gmShapeGradient));
-    // err = cudaMemcpy(hshape, shape,nc*sizeof(gmShape), cudaMemcpyDeviceToHost);
-    // err = cudaMemcpy(hgrashape, shapeGradient,nc*sizeof(gmShapeGradient), cudaMemcpyDeviceToHost);
-    // except(err,"Fail to tansfer data to device, force");
-    // for (int i =0; i<nc; i++)
-    // {
-    //     EchoVar("node id", i);
-    //     for (int j =0; j<16; j++) std::cout<<hshape[i].val[j]<<", ";
-    //     std::cout<<std::endl;
-    //     EchoVar("neighbor", i);
-    //     for (int j =0; j<14; j++) std::cout<<hgrashape[i].val[0][j]<<", ";
-    //     std::cout<<std::endl;
-    //     EchoVar("neighbor", i);
-    //     for (int j =0; j<14; j++) std::cout<<hgrashape[i].val[1][j]<<", ";
-    //     std::cout<<std::endl;
-    // }
 }

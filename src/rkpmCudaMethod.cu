@@ -23,8 +23,36 @@ findBin(const cellPosition *positionDev, int *nodeBinId, int nc, const gmbinInfo
                 nodeBinId[3 * index + dm] = __double2int_rd((localCoo - modelBound.min[dm]) / binInfo.size);
             }
         }
-
         // nodeBinId[index]=nid[0]+nid[1]*binInfo.num[0]+nid[2]*binInfo.num[0]*binInfo.num[1];
+    }
+}
+
+__global__ void predictor(int nc, double dlt, cellDsp *dspDev)
+{
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (index < nc)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+
+            dspDev[index].dsp[j] += dlt * dspDev[index].vel[j] + dlt * dlt * 0.5 * dspDev[index].acl[j];
+            dspDev[index].vel[j] += dlt * 0.5 * dspDev[index].acl[j];
+        }
+    }
+}
+
+__global__ void corrector(int nc, double dlt, cellDsp *dspDev)
+{
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (index < nc)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            dspDev[index].acl[j] = (dspDev[index].fext[j] - dspDev[index].fint[j]) / dspDev[index].mass;
+            dspDev[index].vel[j] += 0.5 * dlt * dspDev[index].acl[j];
+        }
     }
 }
 
@@ -201,7 +229,6 @@ __global__ void updateRK(int nc, gmNodeNeighbor *nodeNeighbor, const cellPositio
         mat4Scale(-1, &mtemp4);
         mat4Prod(&mtemp4, &invM, &invdm2);
 
-
         mat4Prod(&invM, &dm3, &mtemp4);
         mat4Scale(-1, &mtemp4);
         mat4Prod(&mtemp4, &invM, &invdm3);
@@ -228,18 +255,18 @@ __global__ void updateRK(int nc, gmNodeNeighbor *nodeNeighbor, const cellPositio
             getPhi(&hx, &phi, positionDev[localNeighborId].win);
             double temp, temp1, temp2, temp3;
 
-            vec4Dot(&b0,&hx,&temp);
-            shape[index].val[i]=phi.val[0]*temp;
+            vec4Dot(&b0, &hx, &temp);
+            shape[index].val[i] = phi.val[0] * temp;
 
-            vec4Dot(&b1,&hx,&temp1);
-            vec4Dot(&b2,&hx,&temp2);
-            vec4Dot(&b3,&hx,&temp3);
-            shapeGradient[index].val[0][i]=phi.val[0]*temp1 + phi.val[0] * b0.val[1] + phi.val[1] * temp;
-            shapeGradient[index].val[1][i]=phi.val[0]*temp2 + phi.val[0] * b0.val[2] + phi.val[2] * temp;
-            shapeGradient[index].val[2][i]=phi.val[0]*temp3 + phi.val[0] * b0.val[3] + phi.val[3] * temp;
+            vec4Dot(&b1, &hx, &temp1);
+            vec4Dot(&b2, &hx, &temp2);
+            vec4Dot(&b3, &hx, &temp3);
+            shapeGradient[index].val[0][i] = phi.val[0] * temp1 + phi.val[0] * b0.val[1] + phi.val[1] * temp;
+            shapeGradient[index].val[1][i] = phi.val[0] * temp2 + phi.val[0] * b0.val[2] + phi.val[2] * temp;
+            shapeGradient[index].val[2][i] = phi.val[0] * temp3 + phi.val[0] * b0.val[3] + phi.val[3] * temp;
 
-            // shape[index].val[i]=positionDev[localNeighborId].coo[0];            
-            // shape[index].val[i]=localCoo[2];           
+            // shape[index].val[i]=positionDev[localNeighborId].coo[0];
+            // shape[index].val[i]=localCoo[2];
             // shapeGradient[index].val[0][i]=positionDev[localNeighborId].coo[2];
             // shapeGradient[index].val[0][i]=positionDev[localNeighborId].win;
             // shapeGradient[index].val[0][i]=localCoo[2];
@@ -253,7 +280,6 @@ __global__ void updateRK(int nc, gmNodeNeighbor *nodeNeighbor, const cellPositio
         //     {
         //         shape[index].val[i*4+j]=M.val[i][j];
         //     }
-        
     }
 }
 __device__ void getPhi(vec4 *hxPtr, vec4 *phiPtr, double win)
@@ -263,7 +289,7 @@ __device__ void getPhi(vec4 *hxPtr, vec4 *phiPtr, double win)
 
     for (int i = 0; i < 3; i++)
     {
-        zl[i] = abs((*hxPtr).val[i + 1])/win;
+        zl[i] = abs((*hxPtr).val[i + 1]) / win;
         if (zl[i] <= 0.5)
         {
             localPhi[i] = 2.0 / 3.0 - 4 * zl[i] * zl[i] + 4 * zl[i] * zl[i] * zl[i];
@@ -301,9 +327,10 @@ __device__ void vec4Expand(vec4 *va, vec4 *vb, mat4 *ans)
 
 __device__ void vec4Dot(vec4 *va, vec4 *vb, double *ans)
 {
-    double temp {0};
-    for (int i = 0; i < 4; i++) temp+=(*va).val[i]*(*vb).val[i];
-    (*ans)=temp;
+    double temp{0};
+    for (int i = 0; i < 4; i++)
+        temp += (*va).val[i] * (*vb).val[i];
+    (*ans) = temp;
 }
 
 __device__ void mat4Scale(const double scaler, mat4 *ans)
@@ -374,4 +401,85 @@ __device__ void mat4Invert(mat4 *ma, mat4 *ans)
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
             (*ans).val[i][j] = ta.val[i][j] / det;
+}
+
+
+__global__ void fintCal(int nc, cellDsp *dspDev, gmNodeNeighbor* nodeNeighbor, gmShapeGradient* shapeGradient, cellForce* forceDev)
+{
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (index < nc)
+    {
+        double strainLocal[6] {};
+        for (int i=0; i<nodeNeighbor[index].neighborNum; i++)
+        {
+            int neiborId=nodeNeighbor[index].neighborId[i];
+            strainLocal[0]+=dspDev[neiborId].dsp[0]*shapeGradient[index].val[0][i];
+            strainLocal[1]+=dspDev[neiborId].dsp[1]*shapeGradient[index].val[1][i];
+            strainLocal[2]+=dspDev[neiborId].dsp[2]*shapeGradient[index].val[2][i];
+            strainLocal[3]+=dspDev[neiborId].dsp[1]*shapeGradient[index].val[2][i]+dspDev[neiborId].dsp[2]*shapeGradient[index].val[1][i];
+            strainLocal[4]+=dspDev[neiborId].dsp[0]*shapeGradient[index].val[2][i]+dspDev[neiborId].dsp[2]*shapeGradient[index].val[0][i];
+            strainLocal[5]+=dspDev[neiborId].dsp[0]*shapeGradient[index].val[1][i]+dspDev[neiborId].dsp[1]*shapeGradient[index].val[0][i];
+        }
+        double stressLocal[6] {};
+        for (int i=0; i<6; i++)
+        {
+            for (int j=0; j<6; j++)
+            {
+                stressLocal[i]+=forceDev[index].cmat[i][j]*strainLocal[j];
+            }
+        }
+
+        // assembly
+
+        for (int i=0; i<nodeNeighbor[index].neighborNum; i++)
+        {
+            int neiborId=nodeNeighbor[index].neighborId[i];
+            int thisId {};
+            thisId=findThisId(nodeNeighbor, neiborId, index);
+            forceDev[neiborId].fint[thisId][0]=stressLocal[0]*shapeGradient[index].val[0][i]+stressLocal[4]*shapeGradient[index].val[2][i]+stressLocal[5]*shapeGradient[index].val[1][i];
+            forceDev[neiborId].fint[thisId][1]=stressLocal[1]*shapeGradient[index].val[1][i]+stressLocal[3]*shapeGradient[index].val[2][i]+stressLocal[5]*shapeGradient[index].val[0][i];
+            forceDev[neiborId].fint[thisId][2]=stressLocal[2]*shapeGradient[index].val[2][i]+stressLocal[3]*shapeGradient[index].val[1][i]+stressLocal[4]*shapeGradient[index].val[0][i];
+        }
+    }
+}
+
+__device__ int findThisId(gmNodeNeighbor* nodeNeighbor, int neiborId, int index)
+{
+    for (int i=0; i<nodeNeighbor[neiborId].neighborNum; i++)
+    {
+        if (nodeNeighbor[neiborId].neighborId[i]==index) return i;
+    }
+    // exit(1);
+    return 0;
+}
+
+__global__ void assemble (int nc,cellDsp* dspDev,gmNodeNeighbor* nodeNeighbor,cellForce* forceDev)
+{
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (index < nc)
+    {
+        for (int i=0; i<3; i++) dspDev[index].fint[i]=0;
+        for (int i=0; i<nodeNeighbor[index].neighborNum; i++)
+        {
+            int neiborId=nodeNeighbor[index].neighborId[i];
+            dspDev[index].fint[0]+=forceDev[neiborId].fint[i][0];
+            dspDev[index].fint[1]+=forceDev[neiborId].fint[i][1];
+            dspDev[index].fint[2]+=forceDev[neiborId].fint[i][2];
+        }
+    }
+}
+
+__global__ void esstialBoundaryEnforce (int nodeNum, int* essentialNodeList, double currentEssentialBoundaryCondition[3], cellDsp* dspDev)
+{
+    int index = blockDim.x * blockIdx.x + threadIdx.x;
+
+    if (index < nodeNum)
+    {
+        for (int i=0; i<3; i++)
+        {
+            dspDev[essentialNodeList[index]].dsp[i]=currentEssentialBoundaryCondition[i];
+        } 
+    }
 }

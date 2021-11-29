@@ -8,7 +8,7 @@ class gBlockInfo
 {
     public:
     // data
-    mat6 cmat {};
+    double cmat [6][6];
     double materialProperty[20] {};
     double velocityInitial[3]  {};
     int materialType {};

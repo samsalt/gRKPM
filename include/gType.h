@@ -21,13 +21,16 @@ struct cellDsp
     double acl[3] {};
     double dsp[3] {};
     double mass {};
+    double fint[3] {};
+    double fext[3] {};
 };
 struct cellForce
 {
     double strain[6] {};
     double stress[6] {};
     double volume {};
-    mat6 cmat {};
+    double fint[3][MAXNODENEIGHBOR] {};
+    double cmat[6][6];
 };
 struct cellPosition
 {

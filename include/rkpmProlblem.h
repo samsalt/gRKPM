@@ -2,7 +2,7 @@
 #include <iostream>
 #include <array>
 #include <string.h>
-#include <exodusII.h>
+#include "exodusII.h"
 #include "control.h"
 #include "gxcEcho.h"
 #include "gxcMath.h"
@@ -20,6 +20,8 @@ class grkpm
     void preprocess();
     void stateInitiate();
     void solve();
+    // void predictor();
+    // void corrector();
     void hexVolumePosition(const std::array<std::array<double, 3>, 8> &xyzel, double &volume, std::array<double, 3> &position, double &win);
 
     void neighborSearch();

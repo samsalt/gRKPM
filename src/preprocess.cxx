@@ -143,7 +143,7 @@ void grkpm::preprocess()
 
       for (int j = 0; j < 6; j++)
         for (int k = 0; k < 6; k++)
-          hostForce[cellIdGlobal].cmat.val[k][j]=simulationParameter.blockInfo[blockId].cmat.val[j][k];
+          hostForce[cellIdGlobal].cmat[k][j]=simulationParameter.blockInfo[blockId].cmat[j][k];
 
       if (simulationParameter.winMax<localWin) simulationParameter.winMax=localWin;
       for (int j = 0; j < 3; j++)
